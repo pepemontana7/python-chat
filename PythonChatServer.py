@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 import socketserver
 import re
 import socket
@@ -41,8 +40,8 @@ class RequestHandler(socketserver.StreamRequestHandler):
             self.privateMessage('Hello %s, welcome to the Python Chat Server.'\
                                 % nickname)
             self.broadcast('%s has joined the chat.' % nickname, False)
-        except ClientError (error):
-            self.privateMessage(error.args[0])        
+        except ClientError as error:
+            self.privateMessage(error.args[0])
             done = True
         except socket.error:
             done = True
@@ -51,15 +50,14 @@ class RequestHandler(socketserver.StreamRequestHandler):
         while not done:
             try:
                 done = self.processInput()
-            except ClientError (error):
+            except ClientError as error:
                 self.privateMessage(str(error))
-            except socket.error (e):
+            except socket.error as e:
                 done = True
-
-    def finish(self):                        
+    def finish(self):
         "Automatically called when handle() is done."
         if self.nickname:
-            #The user successfully connected before disconnecting. 
+            #The user successfully connected before disconnecting.
             #Broadcast that they're quitting to everyone else.
             message = '%s has quit.' % self.nickname
             if hasattr(self, 'partingWords'):
@@ -82,7 +80,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
         command, arg = self._parseCommand(l)
         if command:
             done = command(arg)
-        else:            
+        else:
             l = '<%s> %s\n' % (self.nickname, l)
             self.broadcast(l)
         return done
@@ -90,6 +88,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
 
     def nickCommand(self, nickname):
         "Attempts to change a user's nickname."
+
         if not nickname:
             raise ClientError ('No nickname provided.')
         if not self.NICKNAME.match(nickname):
@@ -114,13 +113,12 @@ class RequestHandler(socketserver.StreamRequestHandler):
             self.partingWords = partingWords
         #Returning True makes sure the user will be disconnected.
         return True
-
     def namesCommand(self, ignored):
         "Returns a list of the users in this chat room."
         self.privateMessage(', '.join(self.server.users.keys()))
 
     # Below are helper methods.
-    
+
     def broadcast(self, message, includeThisUser=True):
         """Send a message to every connected user, possibly exempting the
         user who's the cause of the message."""
@@ -135,7 +133,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
 
     def _readline(self):
         "Reads a line, removing any whitespace."
-        return self.rfile.readline().strip()
+        return self.rfile.readline().strip().decode('UTF-8')
 
     def _ensureNewline(self, s):
         "Makes sure a string ends in a newline."
@@ -168,4 +166,3 @@ if __name__ == '__main__':
     hostname = sys.argv[1]
     port = int(sys.argv[2])
     PythonChatServer((hostname, port), RequestHandler).serve_forever()
-
