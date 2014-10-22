@@ -33,8 +33,8 @@ class RequestHandler(socketserver.StreamRequestHandler):
 
         self.privateMessage('Who are you?')
         nickname = self._readline()
-        print(nickname)
-        self.privateMessage('nickname is'+ nickname)
+        #print(nickname)
+        #self.privateMessage('nickname is'+ nickname)
         done = False
         try:
             self.nickCommand(nickname)
@@ -126,7 +126,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
         message = self._ensureNewline(message)
         for user, output in self.server.users.items():
             if includeThisUser or user != self.nickname:
-                output.write(message)
+                output.write(bytes(message,'UTF-8'))
 
     def privateMessage(self, message):
         "Send a private message to this user."
