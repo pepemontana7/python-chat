@@ -16,6 +16,7 @@ class PythonChatServer(socketserver.ThreadingTCPServer):
         socketserver.ThreadingTCPServer.__init__(self, server_address,
                                                  RequestHandlerClass)
         self.users = {}
+        self.rooms = {"chat": [], "hottub": []}
 
 
 class RequestHandler(socketserver.StreamRequestHandler):
@@ -31,15 +32,14 @@ class RequestHandler(socketserver.StreamRequestHandler):
         connection."""
         self.nickname = None
 
-        self.privateMessage('Who are you?')
+        self.privateMessageOut('<= Welcome to the XYZ chat server')
+        self.privateMessageIn('Login Name?')
         nickname = self._readline()
-        #print(nickname)
-        #self.privateMessage('nickname is'+ nickname)
+
         done = False
         try:
             self.nickCommand(nickname)
-            self.privateMessage('Hello %s, welcome to the Python Chat Server.'\
-                                % nickname)
+            self.privateMessageIn('<= Welcome %s!' % nickname)
             self.broadcast('%s has joined the chat.' % nickname, False)
         except ClientError as error:
             self.privateMessage(error.args[0])
@@ -54,6 +54,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
             except ClientError as error:
                 self.privateMessage(str(error))
             except socket.error as e:
+                done = True
                 done = True
     def finish(self):
         "Automatically called when handle() is done."
@@ -82,7 +83,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
         if command:
             done = command(arg)
         else:
-            l = '<%s> %s\n' % (self.nickname, l)
+            l = '%s: %s\n' % (self.nickname, l)
             self.broadcast(l)
         return done
 
@@ -103,6 +104,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
             oldNickname = self.nickname
             del(self.server.users[self.nickname])
         self.server.users[nickname] = self.wfile
+        print(self.server.users[nickname] )
         self.nickname = nickname
         if oldNickname:
             self.broadcast('%s is now known as %s' % (oldNickname, self.nickname))
@@ -116,8 +118,27 @@ class RequestHandler(socketserver.StreamRequestHandler):
         return True
     def namesCommand(self, ignored):
         "Returns a list of the users in this chat room."
+        #for name in self.server.users
+        pass #self.privateMessage(', '.join(self.server.users.keys()))
+
+    def roomsCommand(self, ignored):
+        "Returns a list of the active rooms."
+        self.privateMessageOut("<= Active rooms are:")
+        for name in self.server.rooms.keys():
+            self.privateMessageOut(" * "+ name + "("+ str(len(self.server.rooms[name])) + ")")
+        self.privateMessageIn("end of list.")
+    def joinCommand(self, ignored):
+        "Adds user to room and joins chat."
         self.privateMessage(', '.join(self.server.users.keys()))
 
+    def usersInRoom(self,room):
+        return len(self.rooms[room])
+    def list_names(self):
+        for name, out in self.server.users.items():
+            if name == self.nickname:
+                self.privateMessageOut(' * ' +  name + '(** this is you)')
+            else:
+                self.privateMessageOut(' * ' +  name )
     # Below are helper methods.
 
     def broadcast(self, message, includeThisUser=True):
@@ -126,12 +147,18 @@ class RequestHandler(socketserver.StreamRequestHandler):
         message = self._ensureNewline(message)
         for user, output in self.server.users.items():
             if includeThisUser or user != self.nickname:
-                output.write(bytes(message,'UTF-8'))
+                output.write(bytes(  message, 'UTF-8'))
 
     def privateMessage(self, message):
         "Send a private message to this user."
-        self.wfile.write(bytes(self._ensureNewline(message), 'UTF-8'))
+        self.wfile.write(bytes( self._ensureNewline(message), 'UTF-8'))
 
+    def privateMessageIn(self, message):
+        "Send a private message to this user."
+        self.wfile.write(bytes( self._ensureNewlineIn(message), 'UTF-8'))
+    def privateMessageOut(self, message):
+        "Send a private message to this user."
+        self.wfile.write(bytes(self._ensureNewlineOut(message), 'UTF-8'))
     def _readline(self):
         "Reads a line, removing any whitespace."
         return self.rfile.readline().strip().decode('UTF-8')
@@ -141,6 +168,20 @@ class RequestHandler(socketserver.StreamRequestHandler):
         if s and s[-1] != '\n':
             s += '\r\n'
         return s
+    def _ensureNewlineIn(self, s):
+        "Makes sure a string ends in a newline."
+        #s = "=> " + s
+        if s and s[-1] != '\n':
+            s += '\r\n'
+        return s + "=> "
+    def _ensureNewlineOut(self, s):
+        "Makes sure a string ends in a newline."
+        #s = "<= " + s
+        if s and s[-1] != '\n':
+            s += '\r\n'
+        return s + "<= "
+    def _cleanString(self, s):
+        return s[3:]
 
     def _parseCommand(self, input):
         """Try to parse a string as a command to the server. If it's an
