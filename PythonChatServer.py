@@ -31,16 +31,17 @@ class RequestHandler(socketserver.StreamRequestHandler):
         processes input from the user until they quit or drop the
         connection."""
         self.nickname = None
-
+        self.room = None
         self.privateMessageOut('<= Welcome to the XYZ chat server')
         self.privateMessageIn('Login Name?')
         nickname = self._readline()
-
+        self.room_commands = ["leave"]
+        self.chat_commands = ["join","quit","rooms" ]
         done = False
         try:
             self.nickCommand(nickname)
             self.privateMessageIn('<= Welcome %s!' % nickname)
-            self.broadcast('%s has joined the chat.' % nickname, False)
+            #self.broadcast('%s has joined the chat.' % nickname, False)
         except ClientError as error:
             self.privateMessage(error.args[0])
             done = True
@@ -50,7 +51,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
         #Now they're logged in; let them chat.
         while not done:
             try:
-                done = self.processInput()
+                done = self.processInputRoom(self.room)
             except ClientError as error:
                 self.privateMessage(str(error))
             except socket.error as e:
@@ -83,11 +84,22 @@ class RequestHandler(socketserver.StreamRequestHandler):
         if command:
             done = command(arg)
         else:
-            l = '%s: %s\n' % (self.nickname, l)
+            l = '<= %s: %s\n' % (self.nickname, l)
             self.broadcast(l)
         return done
 
-
+    def processInputRoom(self, room = None):
+        """Reads a line from the socket input and either runs it as a
+        command, or broadcasts it as chat text to the room"""
+        done = False
+        l = self._readline()
+        command, arg = self._parseCommand(l)
+        if command:
+            done = command(arg)
+        else:
+            l = '%s: %s\n' % (self.nickname, l)
+            self.broadcastRoom(l,room)
+        return done
     def nickCommand(self, nickname):
         "Attempts to change a user's nickname."
 
@@ -116,29 +128,44 @@ class RequestHandler(socketserver.StreamRequestHandler):
             self.partingWords = partingWords
         #Returning True makes sure the user will be disconnected.
         return True
+    def leaveCommand(self, mes=None):
+        """Tells the other users that this user has left the room """
+        room = self.room
+        self.broadcastRoom("* user has left "+ self.room + ": "+ self.nickname, self.room, False)
+        self.server.rooms[self.room].remove(self.nickname)
+        self.privateMessageIn("<= * user has left "+ room + ": "+ self.nickname + ' (** this is you)')
+        self.room = None
+
     def namesCommand(self, ignored):
         "Returns a list of the users in this chat room."
         #for name in self.server.users
         pass #self.privateMessage(', '.join(self.server.users.keys()))
 
-    def roomsCommand(self, ignored):
+    def roomsCommand(self, create=None):
         "Returns a list of the active rooms."
         self.privateMessageOut("<= Active rooms are:")
         for name in self.server.rooms.keys():
-            self.privateMessageOut(" * "+ name + "("+ str(len(self.server.rooms[name])) + ")")
+            self.privateMessageOut(" * "+ name + "("+ self.usersInRoom(name) + ")")
         self.privateMessageIn("end of list.")
-    def joinCommand(self, ignored):
+    def joinCommand(self, room):
         "Adds user to room and joins chat."
-        self.privateMessage(', '.join(self.server.users.keys()))
+        self.privateMessageOut("<= entering room: " + room)
+        self.server.rooms[room].append((self.nickname))
+        self.list_names(room)
+        self.broadcastRoom("* new user joined "+ room + ": "+ self.nickname  ,room, False)
+        self.room = room
 
-    def usersInRoom(self,room):
-        return len(self.rooms[room])
-    def list_names(self):
-        for name, out in self.server.users.items():
+    def usersInRoom(self, room):
+        "returns string of users in room"
+        return str(len(self.server.rooms[room]))
+    def list_names(self,room):
+
+        for name in self.server.rooms[room]:
             if name == self.nickname:
-                self.privateMessageOut(' * ' +  name + '(** this is you)')
+                self.privateMessageOut(' * ' + name + ' ( ** this is you)')
             else:
-                self.privateMessageOut(' * ' +  name )
+                self.privateMessageOut(' * ' + name )
+        self.privateMessageIn("end of list.")
     # Below are helper methods.
 
     def broadcast(self, message, includeThisUser=True):
@@ -148,7 +175,18 @@ class RequestHandler(socketserver.StreamRequestHandler):
         for user, output in self.server.users.items():
             if includeThisUser or user != self.nickname:
                 output.write(bytes(  message, 'UTF-8'))
+    def broadcastRoom(self, message, room, includeThisUser=True):
+        """Send a message to every connected user in  a room, possibly exempting the
+        user who's the cause of the message."""
+        message = self._ensureNewlineIn("<= "+message)
 
+        for user, output in self.server.users.items():
+            if includeThisUser or user != self.nickname:
+                if user in self.server.rooms[room]:
+                    if user != self.nickname:
+                        output.write(bytes('\n'+message, 'UTF-8'))
+                    else:
+                        output.write(bytes(message, 'UTF-8'))
     def privateMessage(self, message):
         "Send a private message to this user."
         self.wfile.write(bytes( self._ensureNewline(message), 'UTF-8'))
@@ -197,7 +235,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
                 command, = commandAndArg
             commandMethod = getattr(self, command + 'Command', None)
             if not commandMethod:
-                raise ClientError ('No such command: "%s"' % command)
+                raise ClientError ('<= No such command: "%s" \n=>' % command)
         return commandMethod, arg
 
 if __name__ == '__main__':
