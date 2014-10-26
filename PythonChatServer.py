@@ -36,7 +36,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
         self.privateMessageIn('Login Name?')
         nickname = self._readline()
         self.room_commands = ["leave"]
-        self.chat_commands = ["join","quit","rooms" ]
+        self.chat_commands = ["join", "quit", "rooms" ]
         done = False
         try:
             self.nickCommand(nickname)
@@ -53,7 +53,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
             try:
                 done = self.processInputRoom(self.room)
             except ClientError as error:
-                self.privateMessage(str(error))
+                self.privateMessageIn(str(error))
             except socket.error as e:
                 done = True
                 done = True
@@ -62,12 +62,12 @@ class RequestHandler(socketserver.StreamRequestHandler):
         if self.nickname:
             #The user successfully connected before disconnecting.
             #Broadcast that they're quitting to everyone else.
-            message = '%s has quit.' % self.nickname
-            if hasattr(self, 'partingWords'):
-                message = '%s has quit: %s' % (self.nickname,
-                                               self.partingWords)
-            self.broadcast(message, False)
-
+            #message = '%s has quit.' % self.nickname
+            #if hasattr(self, 'partingWords'):
+            #    message = '%s has quit: %s' % (self.nickname,
+            #                                   self.partingWords)
+            #self.broadcast(message, False)
+            self.server.users[self.nickname].write(bytes('<= BYE' + '\n', 'UTF-8'))
             #Remove the user from the list so we don't keep trying to
             #send them messages.
             if self.server.users.get(self.nickname):
@@ -75,18 +75,18 @@ class RequestHandler(socketserver.StreamRequestHandler):
         self.request.shutdown(2)
         self.request.close()
 
-    def processInput(self):
-        """Reads a line from the socket input and either runs it as a
-        command, or broadcasts it as chat text."""
-        done = False
-        l = self._readline()
-        command, arg = self._parseCommand(l)
-        if command:
-            done = command(arg)
-        else:
-            l = '<= %s: %s\n' % (self.nickname, l)
-            self.broadcast(l)
-        return done
+    # def processInput(self):
+    #     """Reads a line from the socket input and either runs it as a
+    #     command, or broadcasts it as chat text."""
+    #     done = False
+    #     l = self._readline()
+    #     command, arg = self._parseCommand(l)
+    #     if command:
+    #         done = command(arg)
+    #     else:
+    #         l = '<= %s: %s\n' % (self.nickname, l)
+    #         self.broadcast(l)
+    #     return done
 
     def processInputRoom(self, room = None):
         """Reads a line from the socket input and either runs it as a
@@ -94,7 +94,9 @@ class RequestHandler(socketserver.StreamRequestHandler):
         done = False
         l = self._readline()
         command, arg = self._parseCommand(l)
-        if command:
+        if command == "not in room":
+            self.privateMessageIn("<= Please join room before chatting (/join ROOMNAME): list rooms (/rooms)")
+        elif command:
             done = command(arg)
         else:
             l = '%s: %s\n' % (self.nickname, l)
@@ -116,7 +118,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
             oldNickname = self.nickname
             del(self.server.users[self.nickname])
         self.server.users[nickname] = self.wfile
-        print(self.server.users[nickname] )
+        
         self.nickname = nickname
         if oldNickname:
             self.broadcast('%s is now known as %s' % (oldNickname, self.nickname))
@@ -126,20 +128,23 @@ class RequestHandler(socketserver.StreamRequestHandler):
         sure the handler will close this connection."""
         if partingWords:
             self.partingWords = partingWords
+        if self.room != None:
+            raise ClientError('<= Leave(/leave) room before quitting room')
         #Returning True makes sure the user will be disconnected.
         return True
     def leaveCommand(self, mes=None):
         """Tells the other users that this user has left the room """
+
         room = self.room
         self.broadcastRoom("* user has left "+ self.room + ": "+ self.nickname, self.room, False)
         self.server.rooms[self.room].remove(self.nickname)
         self.privateMessageIn("<= * user has left "+ room + ": "+ self.nickname + ' (** this is you)')
         self.room = None
 
-    def namesCommand(self, ignored):
-        "Returns a list of the users in this chat room."
-        #for name in self.server.users
-        pass #self.privateMessage(', '.join(self.server.users.keys()))
+    # def namesCommand(self, ignored):
+    #     "Returns a list of the users in this chat room."
+    #     #for name in self.server.users
+    #     pass #self.privateMessage(', '.join(self.server.users.keys()))
 
     def roomsCommand(self, create=None):
         "Returns a list of the active rooms."
@@ -149,6 +154,8 @@ class RequestHandler(socketserver.StreamRequestHandler):
         self.privateMessageIn("end of list.")
     def joinCommand(self, room):
         "Adds user to room and joins chat."
+        if self.room != None:
+            raise ClientError('<= Leave(/leave) room before joining another room')
         self.privateMessageOut("<= entering room: " + room)
         self.server.rooms[room].append((self.nickname))
         self.list_names(room)
@@ -225,17 +232,23 @@ class RequestHandler(socketserver.StreamRequestHandler):
         """Try to parse a string as a command to the server. If it's an
         implemented command, run the corresponding method."""
         commandMethod, arg = None, None
+        if self.room == None and input[0] != '/':
+            return "not in room", None
+
         if input and input[0] == '/':
             if len(input) < 2:
-                raise ClientError ('Invalid command: "%s"' % input)
+                raise ClientError ('<= Invalid command: "%s"' % input)
             commandAndArg = input[1:].split(' ', 1)
             if len(commandAndArg) == 2:
                 command, arg = commandAndArg
+
             else:
                 command, = commandAndArg
+                if command == "leave" and self.room == None:
+                    raise ClientError ('<= You are not in a room.' )
             commandMethod = getattr(self, command + 'Command', None)
             if not commandMethod:
-                raise ClientError ('<= No such command: "%s" \n=>' % command)
+                raise ClientError ('<= No such command: "%s" ' % command)
         return commandMethod, arg
 
 if __name__ == '__main__':
