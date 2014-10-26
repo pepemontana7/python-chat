@@ -10,6 +10,6 @@ cd ~/chat
 git clone https://github.com/pepemontana7/python-chat.git
 
 cd ~/chat/python-chat/
-#run command below to start chat server
+~run command below to start chat server
 ./PythonChatServer.py IP_ADDRESS PORT 
-#e.g. ./PythonChatServer.py 192.168.127.131 2004
+~e.g. ./PythonChatServer.py 192.168.127.131 2004
