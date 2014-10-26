@@ -10,6 +10,35 @@ cd ~/chat
 git clone https://github.com/pepemontana7/python-chat.git
 
 cd ~/chat/python-chat/
-~run command below to start chat server
+#run command below to start chat server
 ./PythonChatServer.py IP_ADDRESS PORT 
-~e.g. ./PythonChatServer.py 192.168.127.131 2004
+#e.g. ./PythonChatServer.py 192.168.127.131 2004
+
+# use a shell with telnet to connect to server
+# e.g. telnet 192.168.127.131 2004
+
+#enter a login name when connected:
+Trying 192.168.127.131...
+Connected to 192.168.127.131.
+Escape character is '^]'.
+<= Welcome to the XYZ chat server
+<= Login Name?
+=> jd
+<= Welcome jd!
+
+#Once connected you have the options below:
+/rooms
+/join ROOMNAME
+/quit
+
+
+#once you have joined the room you can begin chatting with others in the room
+# you may not join another room or quit the session until you leave the room
+#use command below to leave room:
+/leave
+
+
+#Notes for future work:
+1. fix newline issue (useer will see a newline when he gets message
+2. refactor (split error, user and room code into clases)
+3. add /msg to private mesage users
