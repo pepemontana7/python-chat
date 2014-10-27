@@ -27,9 +27,14 @@ Escape character is '^]'.
 <= Welcome jd!
 
 #Once connected you have the options below:
-/rooms
-/join ROOMNAME
-/quit
+1) list rooms:
+		/rooms
+2) join room listed:
+		/join ROOMNAME
+3) create and join new room:
+		/join NEWROOMNAME
+4)quit the app:
+		/quit
 
 
 #once you have joined the room you can begin chatting with others in the room
@@ -39,6 +44,6 @@ Escape character is '^]'.
 
 
 #Notes for future work:
-1. fix newline issue (useer will see a newline when he gets message
+1. fix newline bug (user will see a newline when he gets message) causes usability issues
 2. refactor (split error, user and room code into clases)
 3. add /msg to private mesage users

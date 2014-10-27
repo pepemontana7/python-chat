@@ -93,6 +93,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
         command, or broadcasts it as chat text to the room"""
         done = False
         l = self._readline()
+
         command, arg = self._parseCommand(l)
         if command == "not in room":
             self.privateMessageIn("<= Please join room before chatting (/join ROOMNAME): list rooms (/rooms)")
@@ -100,7 +101,8 @@ class RequestHandler(socketserver.StreamRequestHandler):
             done = command(arg)
         else:
             l = '%s: %s\n' % (self.nickname, l)
-            self.broadcastRoom(l,room)
+            self.broadcastRoom(l, room)
+
         return done
     def nickCommand(self, nickname):
         "Attempts to change a user's nickname."
@@ -118,7 +120,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
             oldNickname = self.nickname
             del(self.server.users[self.nickname])
         self.server.users[nickname] = self.wfile
-        
+
         self.nickname = nickname
         if oldNickname:
             self.broadcast('%s is now known as %s' % (oldNickname, self.nickname))
@@ -156,6 +158,8 @@ class RequestHandler(socketserver.StreamRequestHandler):
         "Adds user to room and joins chat."
         if self.room != None:
             raise ClientError('<= Leave(/leave) room before joining another room')
+        if room not in self.server.rooms.keys():
+            self.server.rooms[room] = []
         self.privateMessageOut("<= entering room: " + room)
         self.server.rooms[room].append((self.nickname))
         self.list_names(room)
@@ -191,8 +195,17 @@ class RequestHandler(socketserver.StreamRequestHandler):
             if includeThisUser or user != self.nickname:
                 if user in self.server.rooms[room]:
                     if user != self.nickname:
+                        #if self.rfile.readline().strip().decode('UTF-8') == "":
+                        #print (self.rfile.read())
+                        #print (self.rfile)
+                        print (self.wfile)
+                        #print (len(self.rfile))
+                        #output.write(bytes(message, 'UTF-8'))
                         output.write(bytes('\n'+message, 'UTF-8'))
+                        #print (self.rfile.read(-1))
                     else:
+                        #print("in else")
+                        #print (self.rfile.readline().strip().decode('UTF-8'))
                         output.write(bytes(message, 'UTF-8'))
     def privateMessage(self, message):
         "Send a private message to this user."
