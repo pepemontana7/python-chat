@@ -198,7 +198,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
                         #if self.rfile.readline().strip().decode('UTF-8') == "":
                         #print (self.rfile.read())
                         #print (self.rfile)
-                        print (self.wfile)
+                        #print (self.wfile)
                         #print (len(self.rfile))
                         #output.write(bytes(message, 'UTF-8'))
                         output.write(bytes('\n'+message, 'UTF-8'))
